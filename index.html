@@ -371,37 +371,58 @@
         let liveV = 0, liveC = 0, liveH = 0;
         let formattedSN = "";
         let waveAnim = null;
-        let trendHistory = [];
+        let trendHistory = []; 
+        let liveRef = null;
 
         function connectFirebase() {
-            var sn = document.getElementById("custSN").value.trim();
-            if(!sn) { alert("કૃપા કરીને Device Serial Number દાખલ કરો!"); return; }
-            localStorage.setItem("my_device_sn", sn);
-            
-            formattedSN = sn.replace(/ /g, "_").replace(/:/g, "_");
-            var topSnEl = document.getElementById("disp_top_sn");
-            if(topSnEl) topSnEl.innerText = sn; 
-            document.getElementById("statusMsg").innerText = "Connecting to " + sn + "...";
+            var rawSN = document.getElementById("custSN").value.trim();
+            if(!rawSN) { alert("કૃપા કરીને Device Serial Number દાખલ કરો!"); return; }
 
-        var uidEl = document.getElementById("disp_top_uid");
-            if(uidEl && sn.length >= 4) {
-                var last4 = sn.substring(sn.length - 4).toUpperCase();
+            // ૧. સીરીયલ નંબર ઓટો-ફોર્મેટ
+            var cleanSN = rawSN.toUpperCase();
+            if (!cleanSN.startsWith("SN:")) {
+                cleanSN = "SN: " + cleanSN.replace(/^SN[:_\s-]*/i, "");
+            }
+            document.getElementById("custSN").value = cleanSN;
+            localStorage.setItem("my_device_sn", cleanSN);
+
+            formattedSN = cleanSN.replace(/ /g, "_").replace(/:/g, "_");
+            
+            var topSnEl = document.getElementById("disp_top_sn");
+            if(topSnEl) topSnEl.innerText = cleanSN; 
+            document.getElementById("statusMsg").innerText = "Connecting to " + cleanSN + "...";
+            document.getElementById("statusMsg").style.color = "#ffd600";
+
+            var uidEl = document.getElementById("disp_top_uid");
+            if(uidEl && cleanSN.length >= 4) {
+                var last4 = cleanSN.substring(cleanSN.length - 4).toUpperCase();
                 uidEl.innerText = "UID- " + last4;
             }
 
-            db.ref("devices/" + formattedSN + "/live").on("value", function(snap) {
+            // જૂના ડિવાઇસનું લાઈવ કનેક્શન બંધ કરવું જેથી બે ડિવાઇસનો ડેટા મિક્સ ન થાય
+            if (liveRef) {
+                liveRef.off();
+            }
+
+            liveRef = db.ref("devices/" + formattedSN + "/live");
+            liveRef.on("value", function(snap) {
                 var d = snap.val();
                 if(d) {
                     document.getElementById("statusMsg").innerText = "✅ Device Connected Online!";
                     document.getElementById("statusMsg").style.color = "#00e676";
 
-              var topSnEl = document.getElementById("disp_top_sn");
                     if(topSnEl) {
-                        topSnEl.innerText = sn;
+                        topSnEl.innerText = cleanSN;
                         topSnEl.style.color = "#ffffff";
                         topSnEl.style.borderColor = "#00e676";
-                        topSnEl.style.boxShadow = "0 0 12px rgba(0,230,118,0.4)";
                     }
+
+                    // 🌐 લાઈવ IP અને WiFi Name અપડેટ
+                    if(d.ip) {
+                        document.getElementById("disp_ip").innerText = d.ip;
+                        updateTableIP(cleanSN, d.ip);
+                    }
+                    if(d.ssid) document.getElementById("disp_ssid").innerText = d.ssid;
 
                     liveV = d.voltage || 0;
                     liveC = d.current || 0;
@@ -781,28 +802,51 @@
         }
           let savedDevices = JSON.parse(localStorage.getItem("my_device_list")) || [];
 
+        // લાઈવ IP ટેબલમાં અપડેટ કરવાનું ફંક્શન
+        function updateTableIP(sn, liveIP) {
+            var idx = savedDevices.findIndex(d => d.sn === sn);
+            if(idx >= 0) {
+                savedDevices[idx].ip = liveIP;
+                localStorage.setItem("my_device_list", JSON.stringify(savedDevices));
+                var ipCell = document.getElementById("ip_cell_" + idx);
+                if(ipCell) ipCell.innerText = liveIP;
+            }
+        }
+
+        // નવું ડિવાઇસ સેવ કરવાનું ફંક્શન
         function saveAndAddDevice() {
-            var sn = document.getElementById("custSN").value.trim();
+            var rawSN = document.getElementById("custSN").value.trim();
             var name = document.getElementById("custDevName").value.trim() || "Device-" + (savedDevices.length + 1);
-            if(!sn) { alert("કૃપા કરીને Device Serial Number દાખલ કરો!"); return; }
+            if(!rawSN) { alert("કૃપા કરીને Device Serial Number દાખલ કરો!"); return; }
+
+            var sn = rawSN.toUpperCase();
+            if (!sn.startsWith("SN:")) {
+                sn = "SN: " + sn.replace(/^SN[:_\s-]*/i, "");
+            }
 
             var existingIndex = savedDevices.findIndex(d => d.sn === sn);
             if(existingIndex >= 0) {
                 savedDevices[existingIndex].name = name;
             } else {
-                savedDevices.push({ sn: sn, name: name, ip: "Fetching..." });
+                savedDevices.push({ sn: sn, name: name, ip: "Waiting..." });
             }
             localStorage.setItem("my_device_list", JSON.stringify(savedDevices));
             renderDeviceList();
             document.getElementById("custSN").value = sn;
             connectFirebase();
+            alert("✅ ડિવાઇસ સેવ થઈ ગયું: " + name + " (" + sn + ")");
         }
 
+        // ડિવાઇસ કાયમ માટે DELETE કરવાનું ફંક્શન
         function deleteDevice(index) {
-            if(confirm("આ ડિવાઇસ લિસ્ટમાંથી કાઢી નાખવું છે?")) {
+            var dev = savedDevices[index];
+            if(confirm("શું તમે સાચે જ ડિવાઇસ: '" + dev.name + " (" + dev.sn + ")' લિસ્ટમાંથી કાઢી નાખવા (Delete) માંગો છો?")) {
                 savedDevices.splice(index, 1);
                 localStorage.setItem("my_device_list", JSON.stringify(savedDevices));
                 renderDeviceList();
+                if(document.getElementById("custSN").value === dev.sn) {
+                    document.getElementById("custSN").value = "";
+                }
             }
         }
 
@@ -824,12 +868,12 @@
                 dropdown.innerHTML += `<option value="${dev.sn}">${dev.name} (${dev.sn})</option>`;
                 tbody.innerHTML += `
                     <tr style="border-bottom:1px solid #253342;">
-                        <td style="padding:6px; color:#ffd600; font-weight:bold;">${dev.name}</td>
-                        <td style="padding:6px; font-family:monospace; color:#fff;">${dev.sn}</td>
-                        <td style="padding:6px; color:#61dafb;" id="ip_cell_${idx}">${dev.ip || "Online"}</td>
-                        <td style="padding:6px; text-align:center;">
-                            <button onclick="selectDeviceFromDropdown('${dev.sn}')" style="padding:3px 8px; font-size:0.8em; background:#00bfff; color:#fff; border:none; border-radius:4px; cursor:pointer;">Select</button>
-                            <button onclick="deleteDevice(${idx})" style="padding:3px 8px; font-size:0.8em; background:#ff1744; color:#fff; border:none; border-radius:4px; cursor:pointer; margin-left:4px;">✕</button>
+                        <td style="padding:8px; color:#ffd600; font-weight:bold;">${dev.name}</td>
+                        <td style="padding:8px; font-family:monospace; color:#fff;">${dev.sn}</td>
+                        <td style="padding:8px; color:#61dafb; font-weight:bold;" id="ip_cell_${idx}">${dev.ip || "Waiting..."}</td>
+                        <td style="padding:8px; text-align:center;">
+                            <button onclick="selectDeviceFromDropdown('${dev.sn}')" style="padding:4px 10px; font-size:0.85em; background:#00bfff; color:#fff; border:none; border-radius:4px; cursor:pointer;">Select</button>
+                            <button onclick="deleteDevice(${idx})" style="padding:4px 10px; font-size:0.85em; background:#ff1744; color:#fff; border:none; border-radius:4px; cursor:pointer; margin-left:5px;">🗑️ Delete</button>
                         </td>
                     </tr>
                 `;
