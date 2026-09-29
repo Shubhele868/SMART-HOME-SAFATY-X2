@@ -125,11 +125,8 @@
         </div>
 
         <!-- DEVICE STATUS -->
-        <div class="card" style="background: #101e2e; border: 2px solid #61dafb; box-shadow: 0 0 15px rgba(97,218,251,0.2);">
-            <h3 style="margin-bottom: 5px; color: #61dafb;">💡 Device Live Connection Status</h3>
-            <div id="disp_connection_status" style="font-size: 1.5em; font-weight: 900; color: #ff1744; margin-top: 5px;">
-                🔴 OFFLINE (Waiting for data...)
-            </div>
+        <div class="card">
+            <h3>💡 Device Status: <span id="disp_status" style="color: #76ff03; font-weight: bold;">System Normal</span></h3>
         </div><br>
 
         <!-- LIVE SENSOR GRID -->
@@ -467,23 +464,10 @@
 
             db.ref("devices/" + formattedSN + "/live").on("value", function(snap) {
                 var d = snap.val();
-                var connStatusEl = document.getElementById("disp_connection_status");
                 if(d) {
-                if(d.isOnline === false) {
-                        if(connStatusEl) {
-                            connStatusEl.innerText = "🔴 OFFLINE (No Internet on ESP32)";
-                            connStatusEl.style.color = "#ff1744";
-                        }
-                        document.getElementById("statusMsg").innerText = "⚠️ Device Connected to WiFi but NO INTERNET (OFFLINE)";
-                        document.getElementById("statusMsg").style.color = "#ff1744";
-                    } else {
-                        if(connStatusEl) {
-                            connStatusEl.innerText = "🟢 ONLINE (Connected)";
-                            connStatusEl.style.color = "#76ff03";
-                        }
-                        document.getElementById("statusMsg").innerText = "✅ Device Connected Online!";
-                        document.getElementById("statusMsg").style.color = "#00e676";
-                    }
+                    document.getElementById("statusMsg").innerText = "✅ Device Connected Online!";
+                    document.getElementById("statusMsg").style.color = "#00e676";
+
                     var activeDevName = "Device";
                     var selIdx = document.getElementById("deviceSelect").value;
                     if(selIdx !== "" && savedDevices[selIdx]) {
