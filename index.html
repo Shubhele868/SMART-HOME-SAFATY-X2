@@ -111,7 +111,7 @@
                     <div id="disp_box_sn" style="color: #00e676; font-family: 'Courier New', monospace; font-size: 1.15em; font-weight: bold;">SPGT-Loading...</div>
                 </div>
                 <div style="background: #152232; border: 1px solid #1e3a5f; border-radius: 10px; padding: 10px 15px; min-width: 180px;">
-                    <span style="color: #90a4ae; font-size: 0.75em; font-weight: bold; display: block; margin-bottom: 4px;">CONNECTED WI-FI IP & STATUS:</span>
+                    <span style="color: #90a4ae; font-size: 0.75em; font-weight: bold; display: block; margin-bottom: 4px;">CONNECTED WI-FI IP:</span>
                     <div id="disp_box_ip" style="color: #00e676; font-family: 'Courier New', monospace; font-size: 1.15em; font-weight: bold;">0.0.0.0</div>
                 </div>
             </div>
@@ -495,19 +495,9 @@
 
                     var boxSnEl = document.getElementById("disp_box_sn");
                     if(boxSnEl) boxSnEl.innerText = sn;
-                
-                      var boxIpEl = document.getElementById("disp_box_ip");
-                    if(boxIpEl) {
-                        var isOnlineDev = (d.isOnline === true); // જો ESP32 તરફથી true આવે તો જ Online
-                        if (isOnlineDev) {
-                            boxIpEl.innerText = (d.deviceIP || "0.0.0.0") + " (ONLINE)";
-                            boxIpEl.style.color = "#76ff03"; // લીલો રંગ (Green Color)
-                        } else {
-                            boxIpEl.innerText = "0.0.0.0 (OFFLINE)";
-                            boxIpEl.style.color = "#ff1744"; // લાલ રંગ (Red Color)
-                        }
-                    }
 
+                    var boxIpEl = document.getElementById("disp_box_ip");
+                    if(boxIpEl) boxIpEl.innerText = d.deviceIP || "0.0.0.0";
 
               var topSnEl = document.getElementById("disp_top_sn");
                     if(topSnEl) {
