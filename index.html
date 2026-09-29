@@ -83,11 +83,12 @@
             </div>
         <!-- 1 LAKH CUSTOMER SERIAL NUMBER INPUT --> 
          <div class="search-box">
-            <h3 style="color:#00e676; margin-top:0;">📱 DEVICE MANAGER (1 LAKH DEVICES)</h3>
-            <div style="display:flex; justify-content:center; gap:10px; flex-wrap:wrap; margin-bottom:10px;">
+             <h3 style="color:#00e676; margin-top:0;">📱 DEVICE MANAGER (1 LAKH DEVICES)</h3>
+            <div style="display:flex; justify-content:center; gap:8px; flex-wrap:wrap; margin-bottom:10px;">
                 <input type="text" id="custSN" class="search-input" placeholder="Serial No: SE-SG-X1-XXXXXXXX">
-                <input type="text" id="custDevName" class="search-input" style="max-width:200px;" placeholder="Name (e.g. Bedroom-1)">
-                <button onclick="saveAndAddDevice()" class="btn" style="width:auto; margin:0; background:linear-gradient(145deg, #00e676, #00a152);">➕ Add & Save</button>
+                <input type="text" id="custDevName" class="search-input" style="max-width:180px;" placeholder="Name (e.g. Bedroom-1)">
+                <button onclick="saveAndAddDevice()" class="btn" style="width:auto; margin:0; padding:10px 15px; background:linear-gradient(145deg, #00e676, #00a152);">➕ Add & Save</button>
+                <button onclick="clearDeviceInputs()" class="btn" style="width:auto; margin:0; padding:10px 15px; background:linear-gradient(145deg, #757575, #424242);">🧹 Clear</button>
             </div>
             <div style="margin-top:10px;">
                 <label style="color:#61dafb; font-weight:bold;">Select Saved Device: </label>
@@ -374,7 +375,7 @@
         let trendHistory = []; 
         let liveRef = null;
 
-        function connectFirebase() {
+         function connectFirebase() {
             var rawSN = document.getElementById("custSN").value.trim();
             if(!rawSN) { alert("કૃપા કરીને Device Serial Number દાખલ કરો!"); return; }
 
@@ -386,8 +387,10 @@
             document.getElementById("custSN").value = cleanSN;
             localStorage.setItem("my_device_sn", cleanSN);
 
-            formattedSN = cleanSN.replace(/ /g, "_").replace(/:/g, "_");
-            
+            // Dropdown માં પણ આ ડિવાઇસ સિલેક્ટેડ રહેવું જોઈએ
+            var dropDownEl = document.getElementById("deviceDropdown");
+            if(dropDownEl) dropDownEl.value = cleanSN;
+
             var topSnEl = document.getElementById("disp_top_sn");
             if(topSnEl) topSnEl.innerText = cleanSN; 
             document.getElementById("statusMsg").innerText = "Connecting to " + cleanSN + "...";
@@ -399,13 +402,30 @@
                 uidEl.innerText = "UID- " + last4;
             }
 
-            // જૂના ડિવાઇસનું લાઈવ કનેક્શન બંધ કરવું જેથી બે ડિવાઇસનો ડેટા મિક્સ ન થાય
-            if (liveRef) {
-                liveRef.off();
-            }
+            // જૂનું લાઈવ કનેક્શન બંધ કરવું
+            if (liveRef) { liveRef.off(); }
 
-            liveRef = db.ref("devices/" + formattedSN + "/live");
-            liveRef.on("value", function(snap) {
+            // સ્માર્ટ સર્ચ: Firebase માં સાચી કી આપમેળે શોધીને કનેક્ટ કરશે જેથી "Wrong Serial No" ક્યારેય ન આવે
+            db.ref("devices").once("value", function(allSnap) {
+                var allDevices = allSnap.val() || {};
+                var matchedKey = cleanSN.replace(/ /g, "_").replace(/:/g, "_");
+
+                // જો સીધા પાથથી ન મળે તો અંદર સર્ચ કરશે
+                if (!allDevices[matchedKey]) {
+                    var searchCore = cleanSN.replace(/[^A-Z0-9]/gi, "");
+                    for(var k in allDevices) {
+                        if(k.replace(/[^A-Z0-9]/gi, "").indexOf(searchCore) >= 0 || searchCore.indexOf(k.replace(/[^A-Z0-9]/gi, "")) >= 0) {
+                            matchedKey = k;
+                            break;
+                        }
+                    }
+                }
+
+                formattedSN = matchedKey;
+                liveRef = db.ref("devices/" + formattedSN + "/live");
+
+                liveRef.on("value", function(snap) {
+            
                 var d = snap.val();
                 if(d) {
                     document.getElementById("statusMsg").innerText = "✅ Device Connected Online!";
@@ -571,6 +591,7 @@
                     document.getElementById("statusMsg").style.color = "#ff1744";
                 }
             });
+          });
         }
 
         function setVal(id, text) {
@@ -802,7 +823,14 @@
         }
           let savedDevices = JSON.parse(localStorage.getItem("my_device_list")) || [];
 
-        // લાઈવ IP ટેબલમાં અપડેટ કરવાનું ફંક્શન
+        // લાઈવ IP ટેબલમાં અપડેટ કરવાનું ફંક્શન 
+        function clearDeviceInputs() {
+            document.getElementById("custSN").value = "";
+            document.getElementById("custDevName").value = "";
+            document.getElementById("custSN").focus();
+        }
+
+        // લાઈવ IP અપડેટ કરવાનું ફંક્શન
         function updateTableIP(sn, liveIP) {
             var idx = savedDevices.findIndex(d => d.sn === sn);
             if(idx >= 0) {
@@ -813,7 +841,23 @@
             }
         }
 
-        // નવું ડિવાઇસ સેવ કરવાનું ફંક્શન
+        // પેજ ખુલતાં જ લિસ્ટના તમામ ડિવાઇસના લાઈવ IP Firebase માંથી ખેંચી લેવા
+        function fetchAllDevicesLiveIP() {
+            db.ref("devices").once("value", function(snapshot) {
+                var allData = snapshot.val() || {};
+                savedDevices.forEach((dev, idx) => {
+                    var devKey = dev.sn.replace(/ /g, "_").replace(/:/g, "_");
+                    if (allData[devKey] && allData[devKey].live && allData[devKey].live.ip) {
+                        dev.ip = allData[devKey].live.ip;
+                        var cell = document.getElementById("ip_cell_" + idx);
+                        if(cell) cell.innerText = dev.ip;
+                    }
+                });
+                localStorage.setItem("my_device_list", JSON.stringify(savedDevices));
+            });
+        }
+
+        // નવું ડિવાઇસ સેવ કરવું
         function saveAndAddDevice() {
             var rawSN = document.getElementById("custSN").value.trim();
             var name = document.getElementById("custDevName").value.trim() || "Device-" + (savedDevices.length + 1);
@@ -828,24 +872,35 @@
             if(existingIndex >= 0) {
                 savedDevices[existingIndex].name = name;
             } else {
-                savedDevices.push({ sn: sn, name: name, ip: "Waiting..." });
+                savedDevices.push({ sn: sn, name: name, ip: "Online" });
             }
             localStorage.setItem("my_device_list", JSON.stringify(savedDevices));
-            renderDeviceList();
+            renderDeviceList(sn);
             document.getElementById("custSN").value = sn;
             connectFirebase();
             alert("✅ ડિવાઇસ સેવ થઈ ગયું: " + name + " (" + sn + ")");
         }
 
-        // ડિવાઇસ કાયમ માટે DELETE કરવાનું ફંક્શન
+        // ડિવાઇસ Delete કરવું
         function deleteDevice(index) {
             var dev = savedDevices[index];
-            if(confirm("શું તમે સાચે જ ડિવાઇસ: '" + dev.name + " (" + dev.sn + ")' લિસ્ટમાંથી કાઢી નાખવા (Delete) માંગો છો?")) {
+            if(confirm("શું તમે સાચે જ ડિવાઇસ: '" + dev.name + " (" + dev.sn + ")' Delete કરવા માંગો છો?")) {
+                var isCurrent = (document.getElementById("custSN").value === dev.sn);
                 savedDevices.splice(index, 1);
                 localStorage.setItem("my_device_list", JSON.stringify(savedDevices));
-                renderDeviceList();
-                if(document.getElementById("custSN").value === dev.sn) {
-                    document.getElementById("custSN").value = "";
+                
+                var nextSN = savedDevices.length > 0 ? savedDevices[0].sn : "";
+                renderDeviceList(nextSN);
+
+                if(isCurrent) {
+                    if(nextSN) {
+                        document.getElementById("custSN").value = nextSN;
+                        connectFirebase();
+                    } else {
+                        document.getElementById("custSN").value = "";
+                        if(liveRef) liveRef.off();
+                        document.getElementById("statusMsg").innerText = "No Device Connected";
+                    }
                 }
             }
         }
@@ -856,7 +911,8 @@
             connectFirebase();
         }
 
-        function renderDeviceList() {
+        // Dropdown અને Table રેન્ડર કરવું (સિલેક્શન જાળવી રાખશે)
+        function renderDeviceList(activeSN) {
             var dropdown = document.getElementById("deviceDropdown");
             var tbody = document.getElementById("deviceTableBody");
             if(!dropdown || !tbody) return;
@@ -865,12 +921,13 @@
             tbody.innerHTML = '';
 
             savedDevices.forEach((dev, idx) => {
-                dropdown.innerHTML += `<option value="${dev.sn}">${dev.name} (${dev.sn})</option>`;
+                var isSel = (dev.sn === activeSN) ? 'selected' : '';
+                dropdown.innerHTML += `<option value="${dev.sn}" ${isSel}>${dev.name} (${dev.sn})</option>`;
                 tbody.innerHTML += `
                     <tr style="border-bottom:1px solid #253342;">
                         <td style="padding:8px; color:#ffd600; font-weight:bold;">${dev.name}</td>
                         <td style="padding:8px; font-family:monospace; color:#fff;">${dev.sn}</td>
-                        <td style="padding:8px; color:#61dafb; font-weight:bold;" id="ip_cell_${idx}">${dev.ip || "Waiting..."}</td>
+                        <td style="padding:8px; color:#61dafb; font-weight:bold;" id="ip_cell_${idx}">${dev.ip || "Online"}</td>
                         <td style="padding:8px; text-align:center;">
                             <button onclick="selectDeviceFromDropdown('${dev.sn}')" style="padding:4px 10px; font-size:0.85em; background:#00bfff; color:#fff; border:none; border-radius:4px; cursor:pointer;">Select</button>
                             <button onclick="deleteDevice(${idx})" style="padding:4px 10px; font-size:0.85em; background:#ff1744; color:#fff; border:none; border-radius:4px; cursor:pointer; margin-left:5px;">🗑️ Delete</button>
@@ -878,16 +935,17 @@
                     </tr>
                 `;
             });
+
+            if(activeSN) dropdown.value = activeSN;
         }
 
+        // પેજ લોડ વખતે
         window.onload = function() {
-            renderDeviceList();
-            var saved = localStorage.getItem("my_device_sn");
+            var saved = localStorage.getItem("my_device_sn") || (savedDevices.length > 0 ? savedDevices[0].sn : "");
+            renderDeviceList(saved);
+            fetchAllDevicesLiveIP();
             if(saved) {
                 document.getElementById("custSN").value = saved;
-                connectFirebase();
-            } else if(savedDevices.length > 0) {
-                document.getElementById("custSN").value = savedDevices[0].sn;
                 connectFirebase();
             }
         };
