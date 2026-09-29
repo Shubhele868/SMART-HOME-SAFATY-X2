@@ -103,9 +103,10 @@
                 <h4 style="margin:5px 0 10px 0; color:#ffd600;">📋 Saved Devices & Live IP:</h4>
                 <table style="width:100%; border-collapse:collapse; font-size:0.9em; text-align:left;">
                     <thead>
-                        <tr style="border-bottom:1px solid #3c4f65; color:#61dafb;">
+                         <tr style="border-bottom:1px solid #3c4f65; color:#61dafb;">
                             <th style="padding:6px;">Device Name</th>
                             <th style="padding:6px;">Serial Number</th>
+                            <th style="padding:6px;">Status</th>
                             <th style="padding:6px;">Live IP</th>
                             <th style="padding:6px; text-align:center;">Action</th>
                         </tr>
@@ -824,13 +825,44 @@
           let savedDevices = JSON.parse(localStorage.getItem("my_device_list")) || [];
 
         // લાઈવ IP ટેબલમાં અપડેટ કરવાનું ફંક્શન 
+        // ડિવાઇસ ક્લિયર કરતાં આખી સ્ક્રીન 0.0 અને ડિસ્કનેક્ટ કરવી
         function clearDeviceInputs() {
             document.getElementById("custSN").value = "";
             document.getElementById("custDevName").value = "";
+            if (liveRef) { liveRef.off(); liveRef = null; }
+            localStorage.removeItem("my_device_sn");
+
+            // તમામ ડેશબોર્ડ પેરામીટર્સ 0.0 કરવા
+            document.getElementById("disp_top_sn").innerText = "Not Connected (Enter Below)";
+            document.getElementById("disp_top_sn").style.borderColor = "#ffd600";
+            document.getElementById("disp_top_uid").innerText = "UID- ----";
+            document.getElementById("statusMsg").innerText = "⚪ Device Disconnected";
+            document.getElementById("statusMsg").style.color = "#aaa";
+
+            document.getElementById("disp_v").innerText = "0.0 V";
+            document.getElementById("disp_c").innerText = "0.00 A";
+            document.getElementById("disp_ev").innerText = "0.0 V";
+            document.getElementById("disp_pf").innerText = "0.00";
+            document.getElementById("disp_kwh").innerText = "0.000";
+            document.getElementById("disp_cost").innerText = "₹ 0.00";
+            document.getElementById("disp_freq").innerText = "0.0 Hz";
+            document.getElementById("disp_relay").innerText = "⚪ OFF";
+            document.getElementById("disp_relay").style.color = "#aaa";
+            document.getElementById("disp_health").innerText = "0.0 %";
+            document.getElementById("disp_cap").innerText = "⚪ OFF";
+            document.getElementById("disp_cap").style.color = "#aaa";
+            document.getElementById("disp_status").innerText = "Disconnected";
+            document.getElementById("disp_status").style.color = "#aaa";
+
+            document.getElementById("disp_ip").innerText = "Not Connected";
+            document.getElementById("disp_ssid").innerText = "Not Connected";
+            document.getElementById("deviceDropdown").value = "";
+
+            renderDeviceList("");
             document.getElementById("custSN").focus();
         }
 
-        // લાઈવ IP અપડેટ કરવાનું ફંક્શન
+        // લાઈવ IP અને Online/Offline સ્ટેટસ અપડેટ
         function updateTableIP(sn, liveIP) {
             var idx = savedDevices.findIndex(d => d.sn === sn);
             if(idx >= 0) {
@@ -841,19 +873,33 @@
             }
         }
 
-        // પેજ ખુલતાં જ લિસ્ટના તમામ ડિવાઇસના લાઈવ IP Firebase માંથી ખેંચી લેવા
-        function fetchAllDevicesLiveIP() {
-            db.ref("devices").once("value", function(snapshot) {
+        // તમામ ડિવાઇસ લાઈવ છે કે નહીં (Online / Offline) તે Firebase માંથી દર ૪ સેકન્ડે તપાસવું
+        function monitorAllDevicesStatus() {
+            db.ref("devices").on("value", function(snapshot) {
                 var allData = snapshot.val() || {};
+                var now = Date.now();
+
                 savedDevices.forEach((dev, idx) => {
                     var devKey = dev.sn.replace(/ /g, "_").replace(/:/g, "_");
-                    if (allData[devKey] && allData[devKey].live && allData[devKey].live.ip) {
-                        dev.ip = allData[devKey].live.ip;
-                        var cell = document.getElementById("ip_cell_" + idx);
-                        if(cell) cell.innerText = dev.ip;
+                    var devData = allData[devKey] ? allData[devKey].live : null;
+
+                    var statusCell = document.getElementById("status_cell_" + idx);
+                    var ipCell = document.getElementById("ip_cell_" + idx);
+
+                    // જો ડિવાઇસનો છેલ્લો ડેટા ૧૨ સેકન્ડની અંદર આવ્યો હોય તો જ Online
+                    if (devData && devData.serverTime && (now - devData.serverTime < 12000)) {
+                        if(statusCell) statusCell.innerHTML = '<span style="color:#76ff03; font-weight:bold;">🟢 ONLINE</span>';
+                        if(ipCell) ipCell.innerText = devData.ip || "10.49.234.26";
+                        dev.ip = devData.ip || dev.ip;
+                    } else if (devData && devData.ip && !devData.serverTime) {
+                        // જૂના ફર્મવેર માટે ફોલબેક
+                        if(statusCell) statusCell.innerHTML = '<span style="color:#76ff03; font-weight:bold;">🟢 ONLINE</span>';
+                        if(ipCell) ipCell.innerText = devData.ip;
+                    } else {
+                        if(statusCell) statusCell.innerHTML = '<span style="color:#ff1744; font-weight:bold;">🔴 OFFLINE</span>';
+                        if(ipCell) ipCell.innerText = "---";
                     }
                 });
-                localStorage.setItem("my_device_list", JSON.stringify(savedDevices));
             });
         }
 
@@ -872,7 +918,7 @@
             if(existingIndex >= 0) {
                 savedDevices[existingIndex].name = name;
             } else {
-                savedDevices.push({ sn: sn, name: name, ip: "Online" });
+                savedDevices.push({ sn: sn, name: name, ip: "Checking..." });
             }
             localStorage.setItem("my_device_list", JSON.stringify(savedDevices));
             renderDeviceList(sn);
@@ -897,9 +943,7 @@
                         document.getElementById("custSN").value = nextSN;
                         connectFirebase();
                     } else {
-                        document.getElementById("custSN").value = "";
-                        if(liveRef) liveRef.off();
-                        document.getElementById("statusMsg").innerText = "No Device Connected";
+                        clearDeviceInputs();
                     }
                 }
             }
@@ -911,7 +955,7 @@
             connectFirebase();
         }
 
-        // Dropdown અને Table રેન્ડર કરવું (સિલેક્શન જાળવી રાખશે)
+        // Table રેન્ડર કરવું (Status અને IP સાથે)
         function renderDeviceList(activeSN) {
             var dropdown = document.getElementById("deviceDropdown");
             var tbody = document.getElementById("deviceTableBody");
@@ -927,7 +971,8 @@
                     <tr style="border-bottom:1px solid #253342;">
                         <td style="padding:8px; color:#ffd600; font-weight:bold;">${dev.name}</td>
                         <td style="padding:8px; font-family:monospace; color:#fff;">${dev.sn}</td>
-                        <td style="padding:8px; color:#61dafb; font-weight:bold;" id="ip_cell_${idx}">${dev.ip || "Online"}</td>
+                        <td style="padding:8px;" id="status_cell_${idx}"><span style="color:#aaa;">Checking...</span></td>
+                        <td style="padding:8px; color:#61dafb; font-weight:bold;" id="ip_cell_${idx}">${dev.ip || "---"}</td>
                         <td style="padding:8px; text-align:center;">
                             <button onclick="selectDeviceFromDropdown('${dev.sn}')" style="padding:4px 10px; font-size:0.85em; background:#00bfff; color:#fff; border:none; border-radius:4px; cursor:pointer;">Select</button>
                             <button onclick="deleteDevice(${idx})" style="padding:4px 10px; font-size:0.85em; background:#ff1744; color:#fff; border:none; border-radius:4px; cursor:pointer; margin-left:5px;">🗑️ Delete</button>
@@ -943,7 +988,7 @@
         window.onload = function() {
             var saved = localStorage.getItem("my_device_sn") || (savedDevices.length > 0 ? savedDevices[0].sn : "");
             renderDeviceList(saved);
-            fetchAllDevicesLiveIP();
+            monitorAllDevicesStatus();
             if(saved) {
                 document.getElementById("custSN").value = saved;
                 connectFirebase();
