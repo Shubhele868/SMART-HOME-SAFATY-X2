@@ -82,40 +82,38 @@
                 </span>
             </div>
         <!-- 1 LAKH CUSTOMER SERIAL NUMBER INPUT --> 
-       <div class="search-box">
-        <span style="color:#00e676; font-weight:bold; font-size:1.1em; display:block; margin-bottom:8px;">📱 SELECT OR ADD DEVICE:</span>
-            
-            <div style="margin-bottom: 10px;">
-                <select id="deviceSelect" class="search-input" style="width:90%; max-width:380px; cursor:pointer;" onchange="onDeviceSelectChange()">
-                    <option value="">-- No Device Added --</option>
+         <div class="search-box">
+            <h3 style="color:#00e676; margin-top:0;">📱 DEVICE MANAGER (1 LAKH DEVICES)</h3>
+            <div style="display:flex; justify-content:center; gap:10px; flex-wrap:wrap; margin-bottom:10px;">
+                <input type="text" id="custSN" class="search-input" placeholder="Serial No: SE-SG-X1-XXXXXXXX">
+                <input type="text" id="custDevName" class="search-input" style="max-width:200px;" placeholder="Name (e.g. Bedroom-1)">
+                <button onclick="saveAndAddDevice()" class="btn" style="width:auto; margin:0; background:linear-gradient(145deg, #00e676, #00a152);">➕ Add & Save</button>
+            </div>
+            <div style="margin-top:10px;">
+                <label style="color:#61dafb; font-weight:bold;">Select Saved Device: </label>
+                <select id="deviceDropdown" onchange="selectDeviceFromDropdown(this.value)" style="padding:8px; border-radius:6px; background:#1d2b3a; color:#fff; font-size:1em; border:1.5px solid #00bfff;">
+                    <option value="">-- Choose Device --</option>
                 </select>
             </div>
+            <div id="statusMsg" style="margin-top:8px; font-weight:bold; color:#ffd600;"></div>
 
-            <div style="display: flex; flex-direction: column; gap: 8px; align-items: center; margin-top: 10px;">
-                <input type="text" id="custSN" class="search-input" placeholder="Serial No (SN: SE-SG-X1-XXXXXXXX)" style="font-size:0.95em;">
-                <input type="text" id="deviceName" class="search-input" placeholder="Device Name (e.g. Bedroom)" style="font-size:0.95em;">
-            </div>
-
-            <div style="display: flex; gap: 10px; justify-content: center; margin-top: 12px; flex-wrap: wrap;">
-                <button onclick="addNewDevice()" class="btn" style="width:auto; margin-top:0; background:linear-gradient(145deg, #00e676, #00a152); padding: 8px 16px; font-size: 0.95em;">+ Add Device</button>
-                <button onclick="deleteActiveDevice()" class="btn" style="width:auto; margin-top:0; background:linear-gradient(145deg, #ff5252, #d50000); padding: 8px 16px; font-size: 0.95em;">🗑️ Delete Active</button>
-            </div>
-             <!-- DEVICE SERIAL & CONNECTED WI-FI IP BOX -->
-        <div style="background: #08121e; border: 2px solid #00bfff; border-radius: 14px; padding: 15px; margin-bottom: 20px; text-align: center; box-shadow: 0 0 15px rgba(0, 191, 255, 0.2);">
-            <div style="background: #0056b3; color: #ffffff; padding: 4px 12px; border-radius: 6px; font-size: 0.85em; font-weight: bold; display: inline-block; margin-bottom: 12px; letter-spacing: 0.5px;">
-                📡 DEVICE SERIAL & CONNECTED WI-FI IP
-            </div>
-            <div style="display: flex; justify-content: space-around; align-items: center; flex-wrap: wrap; gap: 15px;">
-                <div style="background: #152232; border: 1px solid #1e3a5f; border-radius: 10px; padding: 10px 15px; min-width: 220px;">
-                    <span style="color: #90a4ae; font-size: 0.75em; font-weight: bold; display: block; margin-bottom: 4px;">SERIAL NUMBER (<span id="disp_dev_name">Device</span>):</span>
-                    <div id="disp_box_sn" style="color: #00e676; font-family: 'Courier New', monospace; font-size: 1.15em; font-weight: bold;">SPGT-Loading...</div>
-                </div>
-                <div style="background: #152232; border: 1px solid #1e3a5f; border-radius: 10px; padding: 10px 15px; min-width: 180px;">
-                    <span style="color: #90a4ae; font-size: 0.75em; font-weight: bold; display: block; margin-bottom: 4px;">CONNECTED WI-FI IP & STATUS:</span>
-                    <div id="disp_box_ip" style="color: #00e676; font-family: 'Courier New', monospace; font-size: 1.15em; font-weight: bold;">0.0.0.0</div>
-                </div>
+            <!-- SAVED DEVICES LIST WITH IP -->
+            <div style="margin-top:15px; max-height:220px; overflow-y:auto; background:#101e2e; padding:10px; border-radius:8px; border:1px solid #1c324a;">
+                <h4 style="margin:5px 0 10px 0; color:#ffd600;">📋 Saved Devices & Live IP:</h4>
+                <table style="width:100%; border-collapse:collapse; font-size:0.9em; text-align:left;">
+                    <thead>
+                        <tr style="border-bottom:1px solid #3c4f65; color:#61dafb;">
+                            <th style="padding:6px;">Device Name</th>
+                            <th style="padding:6px;">Serial Number</th>
+                            <th style="padding:6px;">Live IP</th>
+                            <th style="padding:6px; text-align:center;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="deviceTableBody"></tbody>
+                </table>
             </div>
         </div>
+
         <!-- WIFI & IP INFO -->
         <div style="text-align: left; margin-bottom: 10px; padding: 12px; background: #2c3e50; border-left: 5px solid #ffd600; border-radius: 8px; font-size: 1.05em;">
             <span style="color: #ffd600; font-weight: bold;">📶 WiFi Name:</span> <b id="disp_ssid" style="color: #ffffff; font-size: 1.11em;">Connected Online</b>
@@ -125,11 +123,8 @@
         </div>
 
         <!-- DEVICE STATUS -->
-        <div class="card" style="background: #101e2e; border: 2px solid #61dafb; box-shadow: 0 0 15px rgba(97,218,251,0.2);">
-            <h3 style="margin-bottom: 5px; color: #61dafb;">💡 Device Live Connection Status</h3>
-            <div id="disp_connection_status" style="font-size: 1.5em; font-weight: 900; color: #ff1744; margin-top: 5px;">
-                🔴 OFFLINE (Waiting for data...)
-            </div>
+        <div class="card">
+            <h3>💡 Device Status: <span id="disp_status" style="color: #76ff03; font-weight: bold;">System Normal</span></h3>
         </div><br>
 
         <!-- LIVE SENSOR GRID -->
@@ -368,89 +363,16 @@
     <!-- JAVASCRIPT (100% FIREBASE REALTIME ENGINE) -->
     <script>
         const firebaseConfig = {
-            databaseURL: "https://smart-home-safaty-x2-default-rtdb.asia-southeast1.firebasedatabase.app"
+            databaseURL: "https://se-smart-safaty-x0-default-rtdb.asia-southeast1.firebasedatabase.app"
         };
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
-        let savedDevices = [];
-        let formattedSN = "";
         let liveV = 0, liveC = 0, liveH = 0;
+        let formattedSN = "";
         let waveAnim = null;
         let trendHistory = [];
 
-        function loadDevicesFromStorage() {
-            try {
-                savedDevices = JSON.parse(localStorage.getItem("my_saved_devices")) || [];
-            } catch(e) { savedDevices = []; }
-            updateDeviceDropdown();
-        }
-
-        function updateDeviceDropdown() {
-            var select = document.getElementById("deviceSelect");
-            if(!select) return;
-            select.innerHTML = '<option value="">-- Select Saved Device --</option>';
-            
-            savedDevices.forEach(function(dev, idx) {
-                var opt = document.createElement("option");
-                opt.value = idx;
-                opt.text = dev.name + " (" + dev.sn + ")";
-                select.appendChild(opt);
-            });
-        }
-
-       function addNewDevice() {
-            var sn = document.getElementById("custSN").value.trim();
-            var name = document.getElementById("deviceName").value.trim();
-
-            if(!sn) { alert("કૃપા કરીને Device Serial Number દાખલ કરો!"); return; }
-            if(!name) { name = "Device " + (savedDevices.length + 1); }
-
-            var exists = savedDevices.some(d => d.sn === sn);
-            if(!exists) {
-                savedDevices.push({sn: sn, name: name});
-                localStorage.setItem("my_saved_devices", JSON.stringify(savedDevices));
-                updateDeviceDropdown();
-                document.getElementById("deviceSelect").value = savedDevices.length - 1;
-                connectFirebase();
-            } else {
-                // જો પહેલેથી હોય તો પણ તેને સિલેક્ટ કરી કનેક્ટ કરો
-                var idx = savedDevices.findIndex(d => d.sn === sn);
-                document.getElementById("deviceSelect").value = idx;
-                connectFirebase();
-            }
-        }
-
-        function onDeviceSelectChange() {
-            var idx = document.getElementById("deviceSelect").value;
-            if(idx === "") return;
-            var dev = savedDevices[idx];
-            if(dev) {
-                document.getElementById("custSN").value = dev.sn;
-                document.getElementById("deviceName").value = dev.name;
-                connectFirebase();
-            }
-        }
-
-        function deleteActiveDevice() {
-            var idx = document.getElementById("deviceSelect").value;
-            if(idx === "") { alert("કૃપા કરીને ડિલીટ કરવા માટે ડ્રોપડાઉનમાંથી ડિવાઇસ પસંદ કરો!"); return; }
-            
-            if(confirm("શું તમે આ સેવ કરેલ ડિવાઇસને યાદીમાંથી કાઢી નાખવા માંગો છો?")) {
-                savedDevices.splice(idx, 1);
-                localStorage.setItem("my_saved_devices", JSON.stringify(savedDevices));
-                updateDeviceDropdown();
-                
-                document.getElementById("custSN").value = "";
-                document.getElementById("deviceName").value = "";
-                document.getElementById("disp_box_sn").innerText = "Not Connected";
-                document.getElementById("disp_box_ip").innerText = "0.0.0.0";
-                document.getElementById("disp_top_sn").innerText = "Not Connected";
-                
-                // ડિવાઇસ ડિલીટ થાય ત્યારે કનેક્શન બંધ કરો
-                db.ref("devices/" + formattedSN + "/live").off();
-            }
-        }
         function connectFirebase() {
             var sn = document.getElementById("custSN").value.trim();
             if(!sn) { alert("કૃપા કરીને Device Serial Number દાખલ કરો!"); return; }
@@ -469,47 +391,9 @@
 
             db.ref("devices/" + formattedSN + "/live").on("value", function(snap) {
                 var d = snap.val();
-                var connStatusEl = document.getElementById("disp_connection_status");
                 if(d) {
-                if(d.isOnline === false) {
-                        if(connStatusEl) {
-                            connStatusEl.innerText = "🔴 OFFLINE (No Internet on ESP32)";
-                            connStatusEl.style.color = "#ff1744";
-                        }
-                        document.getElementById("statusMsg").innerText = "⚠️ Device Connected to WiFi but NO INTERNET (OFFLINE)";
-                        document.getElementById("statusMsg").style.color = "#ff1744";
-                    } else {
-                        if(connStatusEl) {
-                            connStatusEl.innerText = "🟢 ONLINE (Connected)";
-                            connStatusEl.style.color = "#76ff03";
-                        }
-                        document.getElementById("statusMsg").innerText = "✅ Device Connected Online!";
-                        document.getElementById("statusMsg").style.color = "#00e676";
-                    }
-                    var activeDevName = "Device";
-                    var selIdx = document.getElementById("deviceSelect").value;
-                    if(selIdx !== "" && savedDevices[selIdx]) {
-                        activeDevName = savedDevices[selIdx].name;
-                    }
-                    
-                    var devNameEl = document.getElementById("disp_dev_name");
-                    if(devNameEl) devNameEl.innerText = activeDevName;
-
-                    var boxSnEl = document.getElementById("disp_box_sn");
-                    if(boxSnEl) boxSnEl.innerText = sn;
-                
-                      var boxIpEl = document.getElementById("disp_box_ip");
-                    if(boxIpEl) {
-                        var isOnlineDev = (d.isOnline === true); // જો ESP32 તરફથી true આવે તો જ Online
-                        if (isOnlineDev) {
-                            boxIpEl.innerText = (d.deviceIP || "0.0.0.0") + " (ONLINE)";
-                            boxIpEl.style.color = "#76ff03"; // લીલો રંગ (Green Color)
-                        } else {
-                            boxIpEl.innerText = "0.0.0.0 (OFFLINE)";
-                            boxIpEl.style.color = "#ff1744"; // લાલ રંગ (Red Color)
-                        }
-                    }
-
+                    document.getElementById("statusMsg").innerText = "✅ Device Connected Online!";
+                    document.getElementById("statusMsg").style.color = "#00e676";
 
               var topSnEl = document.getElementById("disp_top_sn");
                     if(topSnEl) {
@@ -895,10 +779,71 @@
             plot('c', 30, '#ff9100');  // Current Line (Orange ઓરેન્જ)
             plot('h', 100, (liveH > 50 ? '#ff1744' : '#76ff03')); // Motor Health (Green/Red)
         }
-        window.onload = function() { 
+          let savedDevices = JSON.parse(localStorage.getItem("my_device_list")) || [];
+
+        function saveAndAddDevice() {
+            var sn = document.getElementById("custSN").value.trim();
+            var name = document.getElementById("custDevName").value.trim() || "Device-" + (savedDevices.length + 1);
+            if(!sn) { alert("કૃપા કરીને Device Serial Number દાખલ કરો!"); return; }
+
+            var existingIndex = savedDevices.findIndex(d => d.sn === sn);
+            if(existingIndex >= 0) {
+                savedDevices[existingIndex].name = name;
+            } else {
+                savedDevices.push({ sn: sn, name: name, ip: "Fetching..." });
+            }
+            localStorage.setItem("my_device_list", JSON.stringify(savedDevices));
+            renderDeviceList();
+            document.getElementById("custSN").value = sn;
+            connectFirebase();
+        }
+
+        function deleteDevice(index) {
+            if(confirm("આ ડિવાઇસ લિસ્ટમાંથી કાઢી નાખવું છે?")) {
+                savedDevices.splice(index, 1);
+                localStorage.setItem("my_device_list", JSON.stringify(savedDevices));
+                renderDeviceList();
+            }
+        }
+
+        function selectDeviceFromDropdown(sn) {
+            if(!sn) return;
+            document.getElementById("custSN").value = sn;
+            connectFirebase();
+        }
+
+        function renderDeviceList() {
+            var dropdown = document.getElementById("deviceDropdown");
+            var tbody = document.getElementById("deviceTableBody");
+            if(!dropdown || !tbody) return;
+
+            dropdown.innerHTML = '<option value="">-- Choose Device --</option>';
+            tbody.innerHTML = '';
+
+            savedDevices.forEach((dev, idx) => {
+                dropdown.innerHTML += `<option value="${dev.sn}">${dev.name} (${dev.sn})</option>`;
+                tbody.innerHTML += `
+                    <tr style="border-bottom:1px solid #253342;">
+                        <td style="padding:6px; color:#ffd600; font-weight:bold;">${dev.name}</td>
+                        <td style="padding:6px; font-family:monospace; color:#fff;">${dev.sn}</td>
+                        <td style="padding:6px; color:#61dafb;" id="ip_cell_${idx}">${dev.ip || "Online"}</td>
+                        <td style="padding:6px; text-align:center;">
+                            <button onclick="selectDeviceFromDropdown('${dev.sn}')" style="padding:3px 8px; font-size:0.8em; background:#00bfff; color:#fff; border:none; border-radius:4px; cursor:pointer;">Select</button>
+                            <button onclick="deleteDevice(${idx})" style="padding:3px 8px; font-size:0.8em; background:#ff1744; color:#fff; border:none; border-radius:4px; cursor:pointer; margin-left:4px;">✕</button>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        window.onload = function() {
+            renderDeviceList();
             var saved = localStorage.getItem("my_device_sn");
             if(saved) {
                 document.getElementById("custSN").value = saved;
+                connectFirebase();
+            } else if(savedDevices.length > 0) {
+                document.getElementById("custSN").value = savedDevices[0].sn;
                 connectFirebase();
             }
         };
