@@ -111,7 +111,7 @@
                     <div id="disp_box_sn" style="color: #00e676; font-family: 'Courier New', monospace; font-size: 1.15em; font-weight: bold;">SPGT-Loading...</div>
                 </div>
                 <div style="background: #152232; border: 1px solid #1e3a5f; border-radius: 10px; padding: 10px 15px; min-width: 180px;">
-                    <span style="color: #90a4ae; font-size: 0.75em; font-weight: bold; display: block; margin-bottom: 4px;">CONNECTED WI-FI IP:</span>
+                    <span style="color: #90a4ae; font-size: 0.75em; font-weight: bold; display: block; margin-bottom: 4px;">CONNECTED WI-FI IP & STATUS:</span>
                     <div id="disp_box_ip" style="color: #00e676; font-family: 'Courier New', monospace; font-size: 1.15em; font-weight: bold;">0.0.0.0</div>
                 </div>
             </div>
@@ -125,8 +125,11 @@
         </div>
 
         <!-- DEVICE STATUS -->
-        <div class="card">
-            <h3>💡 Device Status: <span id="disp_status" style="color: #76ff03; font-weight: bold;">System Normal</span></h3>
+        <div class="card" style="background: #101e2e; border: 2px solid #61dafb; box-shadow: 0 0 15px rgba(97,218,251,0.2);">
+            <h3 style="margin-bottom: 5px; color: #61dafb;">💡 Device Live Connection Status</h3>
+            <div id="disp_connection_status" style="font-size: 1.5em; font-weight: 900; color: #ff1744; margin-top: 5px;">
+                🔴 OFFLINE (Waiting for data...)
+            </div>
         </div><br>
 
         <!-- LIVE SENSOR GRID -->
@@ -396,7 +399,7 @@
             });
         }
 
-        function addNewDevice() {
+       function addNewDevice() {
             var sn = document.getElementById("custSN").value.trim();
             var name = document.getElementById("deviceName").value.trim();
 
@@ -411,7 +414,10 @@
                 document.getElementById("deviceSelect").value = savedDevices.length - 1;
                 connectFirebase();
             } else {
-                alert("આ Serial Number પહેલેથી જ ઉમેરાયેલ છે!");
+                // જો પહેલેથી હોય તો પણ તેને સિલેક્ટ કરી કનેક્ટ કરો
+                var idx = savedDevices.findIndex(d => d.sn === sn);
+                document.getElementById("deviceSelect").value = idx;
+                connectFirebase();
             }
         }
 
@@ -431,21 +437,20 @@
             if(idx === "") { alert("કૃપા કરીને ડિલીટ કરવા માટે ડ્રોપડાઉનમાંથી ડિવાઇસ પસંદ કરો!"); return; }
             
             if(confirm("શું તમે આ સેવ કરેલ ડિવાઇસને યાદીમાંથી કાઢી નાખવા માંગો છો?")) {
-                   savedDevices.splice(idx, 1);
+                savedDevices.splice(idx, 1);
                 localStorage.setItem("my_saved_devices", JSON.stringify(savedDevices));
-                localStorage.removeItem("my_device_sn");
                 updateDeviceDropdown();
                 
                 document.getElementById("custSN").value = "";
                 document.getElementById("deviceName").value = "";
                 document.getElementById("disp_box_sn").innerText = "Not Connected";
                 document.getElementById("disp_box_ip").innerText = "0.0.0.0";
-                document.getElementById("disp_top_sn").innerText = "Not Connected (Enter Below)";
-                document.getElementById("statusMsg").innerText = "Device Deleted from List.";
-                document.getElementById("statusMsg").style.color = "#ff1744";
+                document.getElementById("disp_top_sn").innerText = "Not Connected";
+                
+                // ડિવાઇસ ડિલીટ થાય ત્યારે કનેક્શન બંધ કરો
+                db.ref("devices/" + formattedSN + "/live").off();
             }
         }
-
         function connectFirebase() {
             var sn = document.getElementById("custSN").value.trim();
             if(!sn) { alert("કૃપા કરીને Device Serial Number દાખલ કરો!"); return; }
@@ -464,10 +469,23 @@
 
             db.ref("devices/" + formattedSN + "/live").on("value", function(snap) {
                 var d = snap.val();
+                var connStatusEl = document.getElementById("disp_connection_status");
                 if(d) {
-                    document.getElementById("statusMsg").innerText = "✅ Device Connected Online!";
-                    document.getElementById("statusMsg").style.color = "#00e676";
-
+                if(d.isOnline === false) {
+                        if(connStatusEl) {
+                            connStatusEl.innerText = "🔴 OFFLINE (No Internet on ESP32)";
+                            connStatusEl.style.color = "#ff1744";
+                        }
+                        document.getElementById("statusMsg").innerText = "⚠️ Device Connected to WiFi but NO INTERNET (OFFLINE)";
+                        document.getElementById("statusMsg").style.color = "#ff1744";
+                    } else {
+                        if(connStatusEl) {
+                            connStatusEl.innerText = "🟢 ONLINE (Connected)";
+                            connStatusEl.style.color = "#76ff03";
+                        }
+                        document.getElementById("statusMsg").innerText = "✅ Device Connected Online!";
+                        document.getElementById("statusMsg").style.color = "#00e676";
+                    }
                     var activeDevName = "Device";
                     var selIdx = document.getElementById("deviceSelect").value;
                     if(selIdx !== "" && savedDevices[selIdx]) {
@@ -479,9 +497,19 @@
 
                     var boxSnEl = document.getElementById("disp_box_sn");
                     if(boxSnEl) boxSnEl.innerText = sn;
+                
+                      var boxIpEl = document.getElementById("disp_box_ip");
+                    if(boxIpEl) {
+                        var isOnlineDev = (d.isOnline === true); // જો ESP32 તરફથી true આવે તો જ Online
+                        if (isOnlineDev) {
+                            boxIpEl.innerText = (d.deviceIP || "0.0.0.0") + " (ONLINE)";
+                            boxIpEl.style.color = "#76ff03"; // લીલો રંગ (Green Color)
+                        } else {
+                            boxIpEl.innerText = "0.0.0.0 (OFFLINE)";
+                            boxIpEl.style.color = "#ff1744"; // લાલ રંગ (Red Color)
+                        }
+                    }
 
-                    var boxIpEl = document.getElementById("disp_box_ip");
-                    if(boxIpEl) boxIpEl.innerText = d.deviceIP || "0.0.0.0";
 
               var topSnEl = document.getElementById("disp_top_sn");
                     if(topSnEl) {
